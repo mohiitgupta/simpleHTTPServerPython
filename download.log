@@ -137,3 +137,8 @@ Content-Length: 61699
 Content-Type: image/png
 Set-Cookie: your_identifier=0
 Date: Sun Sep 23 19:29:49 2018
+HTTP/1.0 200 OK
+Content-Length: 61699
+Content-Type: image/png
+Set-Cookie: your_identifier=0
+Date: Sun Sep 23 19:35:20 2018
