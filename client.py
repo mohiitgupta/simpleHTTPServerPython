@@ -39,7 +39,6 @@ def main(argv):
                 data = ''
 
         response = response.split('\n\n')
-        print "length of response is ",  len(response)
         for i in range(2,len(response)):
             response[1] += '\n\n' + response[i]
         if os.path.exists(log_file_name):
