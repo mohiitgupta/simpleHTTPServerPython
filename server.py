@@ -14,6 +14,9 @@ cookie_count = 0
 client_ip_addr_map = {}
 cookie_last_number_visit_map = {}
 
+
+lock = threading.Lock()
+
 def get_file_type(file_name):
     if file_name.endswith(".jpg"):
         mimetype = 'image/jpg'
@@ -48,8 +51,11 @@ def parse(request):
         if cookie_fields[0] == 'Cookie':
             cookie_value = cookie_fields[1].split('=')[1].strip()
     if cookie_value is None:
-        cookie_value = cookie_count
-        cookie_count += 1     
+        with lock:
+            # print "lock acquired for initializing cookie"
+            cookie_value = cookie_count
+            cookie_count += 1 
+            # time.sleep(2)    
 
     header_fields = headers[0].split(' ')
     request_type = header_fields[0].strip()
@@ -64,7 +70,10 @@ def parse(request):
     response_code = '200 OK'
     content_length = None
     file_content = None
-    cookie_header = get_cookie_header(cookie_value)
+    with lock:
+        # print "lock acquired for updating cookie map"
+        cookie_header = get_cookie_header(cookie_value)
+        # time.sleep(2)
 
     try:
         if os.path.isfile(file_name):
@@ -99,7 +108,7 @@ def parse(request):
     return response_headers + '\n\n' + file_content + '\n'
 
 def listen_to_client(connection, client_addr):
-    print "client ip addr is ", client_addr
+    print "request from client ip addr is ", client_addr
     request = ''
     request = connection.recv(4096)
     try:
