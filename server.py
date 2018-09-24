@@ -10,7 +10,6 @@ import time
 directory = "Upload"
 cookie_key = "id"
 banned_ips = set()
-
 cookie_count = 0
 client_ip_addr_map = {}
 cookie_last_number_visit_map = {}
@@ -25,9 +24,7 @@ def get_file_type(file_name):
     return mimetype
 
 def get_cookie_header(cookie_value):
-    # print "cookie value is ", cookie_value, " test"
     if cookie_last_number_visit_map.has_key(cookie_value):
-        # print "cookie value ", cookie_value, " exists"
         cookie_dictionary = cookie_last_number_visit_map[cookie_value]
         visit_count = cookie_dictionary['count']
         cookie_dictionary['count'] = visit_count+1
@@ -40,6 +37,7 @@ def get_cookie_header(cookie_value):
     return cookie_header
 
 def parse(request):
+    global cookie_count
     response_code = '400 Bad Request'
     http_version = 'HTTP/1.0'
     response_headers = ''
@@ -53,7 +51,6 @@ def parse(request):
         cookie_value = cookie_count
         cookie_count += 1     
 
-    # print headers
     header_fields = headers[0].split(' ')
     request_type = header_fields[0].strip()
     if request_type != "GET" and request_type != 'HEAD':
@@ -70,11 +67,11 @@ def parse(request):
     cookie_header = get_cookie_header(cookie_value)
 
     try:
-        accessCode = oct(stat.S_IMODE(os.stat(file_name).st_mode))
-        global_permission = int(accessCode[3])
-        if global_permission < 4:
-            raise Exception('File does not have read permission to public')
         if os.path.isfile(file_name):
+            accessCode = oct(stat.S_IMODE(os.stat(file_name).st_mode))
+            global_permission = int(accessCode[3])
+            if global_permission < 4:
+                raise Exception('File does not have read permission to public')
             content_length = os.path.getsize(file_name)
             mimetype = get_file_type(file_name)
             if request_type == 'GET':
@@ -83,7 +80,6 @@ def parse(request):
         else:
             response_code = '404 NOT FOUND'
     except Exception, e:
-        # print e
         response_code = '403 FORBIDDEN'
 
     response_header1 = http_version + ' ' + response_code
@@ -100,7 +96,6 @@ def parse(request):
         response_headers += date_header
         return response_headers + '\n'
     response_headers += date_header
-    print "content length is ", len(file_content)
     return response_headers + '\n\n' + file_content + '\n'
 
 def listen_to_client(connection, client_addr):
@@ -109,12 +104,13 @@ def listen_to_client(connection, client_addr):
     request = connection.recv(4096)
     try:
         response = parse(request)
-    except Exception:
+    except Exception, e:
+        # print e
         response = "HTTP/1.0 400 Bad Request\n"
     connection.send(response)
     connection.close()
 
-def get_429_response(connection, client_ip):
+def send_429_response(connection, client_ip):
     print client_ip, " is banned"
     response = "HTTP/1.0 429 TOO MANY REQUESTS"
     connection.send(response)
@@ -140,7 +136,7 @@ def main(argv):
         check if client already banned or not
         '''
         if client_ip in banned_ips:
-            get_429_response(connection, client_ip)
+            send_429_response(connection, client_ip)
             continue
 
         '''
@@ -151,24 +147,19 @@ def main(argv):
         else:
             timestamp_queue = Queue()
             client_ip_addr_map[client_ip] = timestamp_queue
+
         ts = int(time.time())
-        # print "timestamp now is ", ts
         if timestamp_queue.qsize() == 100:
             last_timestamp = timestamp_queue.get()
-
             #this checks if the client can be banned or not
             time_difference = ts - last_timestamp
             # print "time difference is ", time_difference
             if time_difference <= 60:
                 banned_ips.add(client_ip)
-                get_429_response(connection, client_ip)
+                send_429_response(connection, client_ip)
                 continue
-            else:
-                timestamp_queue.put(ts)
-        else:
-            timestamp_queue.put(ts)
+        timestamp_queue.put(ts)
 
-        # print "requests made by client are ", timestamp_queue.qsize()
         '''
         if client is not banned, then serve the request in a new thread
         '''
