@@ -2,10 +2,8 @@ import socket
 import os
 import sys, getopt
 
-port = 12345
 directory = "Download"
 log_file_name = "download.log"
-cookie_value = 0
 
 def main(argv):
     requests = 1
@@ -27,7 +25,11 @@ def main(argv):
         request += 'Host: 127.0.0.1:' + str(port) + '\n'
 
         #add cookie header
-        request += 'Cookie:your_identifier=' + str(cookie_value)
+        if os.path.exists('cookie.txt'):
+            file = open('cookie.txt', "rb")
+            cookie = file.read()
+            request += 'Cookie:' + str(cookie)
+            file.close()
         s.send(request)
         response = ''
         data = s.recv(1024*100)
@@ -46,14 +48,32 @@ def main(argv):
         else:
             append_write = 'w' # make a new file if not
 
+        response_fields = response[0].splitlines()
+        for field in response_fields:
+            cookie_fields = field.split(':')
+            # print cookie_fields[0] + " test"
+            if cookie_fields[0] == 'Set-Cookie':
+                # print "inside set cookie"
+                cookie = cookie_fields[1]
+                file = open('cookie.txt', "wb")
+                cookie = file.write(cookie)
+                file.close()
+
         log_file = open(log_file_name, append_write)
         log_file.write(response[0] + '\n')
         log_file.close()
-        if len(response) >= 2:
+        if request_type == 'GET':
+            if len(response) >= 2:
+                if filename == '/':
+                    filename = '/index.html'
+                file = open(directory + filename, "wb")
+                file.write(response[1])
+                file.close()
+        elif request_type == 'HEAD':
             if filename == '/':
                 filename = '/index.html'
             file = open(directory + filename, "wb")
-            file.write(response[1])
+            file.write(response[0])
             file.close()
 
         s.close()
